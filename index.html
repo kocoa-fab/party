@@ -272,6 +272,29 @@
             </div>
           </div>
 
+          <!-- 사이즈 선택 (Tall / Grande / Venti) -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-slate-700">음료 사이즈 선택</span>
+              <span class="text-[10px] text-slate-400">※ Tall 기본, 원하시는 사이즈 터치</span>
+            </div>
+            <div class="grid grid-cols-3 gap-1.5">
+              <button id="btn-size-tall" onclick="selectSize('Tall')" class="py-2 px-1 rounded-xl border-2 text-xs font-bold transition-all bg-emerald-600 border-emerald-600 text-white shadow-sm ring-2 ring-emerald-300 flex flex-col items-center justify-center">
+                <span>Tall</span>
+                <span class="text-[9px] opacity-80">톨 (355ml)</span>
+              </button>
+              <button id="btn-size-grande" onclick="selectSize('Grande')" class="py-2 px-1 rounded-xl border-2 text-xs font-bold transition-all bg-white border-slate-200 text-slate-600 hover:bg-slate-50 flex flex-col items-center justify-center">
+                <span>Grande</span>
+                <span class="text-[9px] opacity-80">그란데 (473ml)</span>
+              </button>
+              <button id="btn-size-venti" onclick="selectSize('Venti')" class="py-2 px-1 rounded-xl border-2 text-xs font-bold transition-all bg-white border-slate-200 text-slate-600 hover:bg-slate-50 flex flex-col items-center justify-center">
+                <span>Venti</span>
+                <span class="text-[9px] opacity-80">벤티 (591ml)</span>
+              </button>
+            </div>
+          </div>
+
+
           <!-- 원두 선택 (디카페인 옵션) -->
           <div class="space-y-1">
             <span class="font-bold text-xs text-slate-700">원두 / 디카페인 선택</span>
@@ -1114,6 +1137,7 @@
     let currentVoter = TEAM_MEMBERS[0];
     let selectedDrink = STARBUCKS_MENU[0];
     let selectedTemp = 'ICE';
+    let selectedSize = 'Tall'; // 'Tall', 'Grande', 'Venti'
     let selectedDecaf = 'none'; // 'none', 'half', 'full'
     let activeCategory = 'all';
 
@@ -1518,7 +1542,8 @@
         let orderBrief = '';
         if (isVoted) {
           const tempShort = (vote.temp === 'HOT') ? '따뜻' : '아이스';
-          orderBrief = `<span class="text-[9px] text-emerald-800 font-bold truncate max-w-full">${tempShort} ${vote.drink.split(' ')[0]}</span>`;
+          const sizeShort = vote.size || 'Tall';
+          orderBrief = `<span class="text-[9px] text-emerald-800 font-bold truncate max-w-full">${tempShort} ${vote.drink.split(' ')[0]} (${sizeShort})</span>`;
         }
 
         btn.innerHTML = `
@@ -1544,11 +1569,13 @@
 
       if (currentVote) {
         selectedTemp = currentVote.temp || 'ICE';
+        selectedSize = currentVote.size || 'Tall';
         selectedDecaf = currentVote.decaf || 'none';
         document.getElementById('input-custom-request').value = currentVote.memo || '';
         document.getElementById('chosen-drink-name').innerText = currentVote.drink;
       } else {
         selectedTemp = (selectedDrink.temp === 'hot') ? 'HOT' : 'ICE';
+        selectedSize = 'Tall';
         selectedDecaf = 'none';
         document.getElementById('input-custom-request').value = '';
         document.getElementById('chosen-drink-name').innerText = selectedDrink.name;
@@ -1663,6 +1690,32 @@
       renderTempButtons();
     }
 
+    
+    function selectSize(size) {
+      selectedSize = size;
+      renderSizeButtons();
+    }
+
+    function renderSizeButtons() {
+      const btnTall = document.getElementById('btn-size-tall');
+      const btnGrande = document.getElementById('btn-size-grande');
+      const btnVenti = document.getElementById('btn-size-venti');
+
+      if (!btnTall || !btnGrande || !btnVenti) return;
+
+      [btnTall, btnGrande, btnVenti].forEach(b => {
+        b.className = "py-2 px-1 rounded-xl border-2 text-xs font-bold transition-all bg-white border-slate-200 text-slate-600 hover:bg-slate-50 flex flex-col items-center justify-center";
+      });
+
+      if (selectedSize === 'Tall') {
+        btnTall.className = "py-2 px-1 rounded-xl border-2 text-xs font-bold transition-all bg-emerald-600 border-emerald-600 text-white shadow-sm ring-2 ring-emerald-300 flex flex-col items-center justify-center";
+      } else if (selectedSize === 'Grande') {
+        btnGrande.className = "py-2 px-1 rounded-xl border-2 text-xs font-bold transition-all bg-emerald-600 border-emerald-600 text-white shadow-sm ring-2 ring-emerald-300 flex flex-col items-center justify-center";
+      } else if (selectedSize === 'Venti') {
+        btnVenti.className = "py-2 px-1 rounded-xl border-2 text-xs font-bold transition-all bg-emerald-600 border-emerald-600 text-white shadow-sm ring-2 ring-emerald-300 flex flex-col items-center justify-center";
+      }
+    }
+
     function renderTempButtons() {
       const btnIce = document.getElementById('btn-temp-ice');
       const btnHot = document.getElementById('btn-temp-hot');
@@ -1722,6 +1775,7 @@
       }
 
       renderTempButtons();
+      renderSizeButtons();
       renderDecafButtons();
     }
 
@@ -1732,6 +1786,7 @@
       appState.votes[currentVoter] = {
         drink: selectedDrink.name,
         temp: selectedTemp,
+        size: selectedSize,
         decaf: selectedDecaf,
         memo: memo,
         updatedAt: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
@@ -1741,7 +1796,7 @@
       
       const tempKor = (selectedTemp === 'ICE') ? '아이스' : '따뜻하게';
       let decafKor = (selectedDecaf === 'none') ? '일반' : (selectedDecaf === 'half' ? '1/2 디카페인' : '디카페인');
-      alert(`[${currentVoter}]님의 주문이 저장되었습니다!\n\n• 메뉴: ${selectedDrink.name} (${tempKor})\n• 원두: ${decafKor}${memo ? '\n• 요청사항: ' + memo : ''}`);
+      alert(`[${currentVoter}]님의 주문이 저장되었습니다!\n\n• 메뉴: ${selectedDrink.name} (${tempKor})\n• 사이즈: ${selectedSize}\n• 원두: ${decafKor}${memo ? '\n• 요청사항: ' + memo : ''}`);
     }
 
     function renderOrderSummary() {
@@ -1769,12 +1824,13 @@
           if (v.decaf === 'half') decafKor = ' (1/2 디카페인)';
           if (v.decaf === 'full') decafKor = ' (디카페인)';
 
-          const key = `${tempKor} ${v.drink}${decafKor}`;
+          const sizeStr = v.size ? `[${v.size}]` : '[Tall]';
+          const key = `${tempKor} ${v.drink} ${sizeStr}${decafKor}`;
           if (!grouped[key]) grouped[key] = 0;
           grouped[key]++;
 
           if (v.memo) {
-            individualNotes.push(`  - ${m}: ${tempKor} ${v.drink} [요청: ${v.memo}]`);
+            individualNotes.push(`  - ${m}: ${tempKor} ${v.drink} (${v.size || 'Tall'}) [요청: ${v.memo}]`);
           }
         });
 
@@ -1808,12 +1864,16 @@
           if (v.decaf === 'half') decafTag = '<span class="bg-amber-100 text-amber-800 text-[10px] px-1 rounded font-bold">1/2디카페인</span>';
           if (v.decaf === 'full') decafTag = '<span class="bg-purple-100 text-purple-800 text-[10px] px-1 rounded font-bold">디카페인</span>';
 
+          const sizeTag = `<span class="bg-blue-50 border border-blue-200 text-blue-800 text-[10px] px-1.5 py-0.5 rounded font-black">${v.size || 'Tall'}</span>`;
           item.innerHTML = `
             <div>
               <div class="font-extrabold text-slate-900">${m}</div>
-              <div class="text-[11px] text-slate-600 mt-0.5">
-                ${tempTag} ${v.drink} ${decafTag}
-                ${v.memo ? `<span class="text-emerald-700 font-medium">(${v.memo})</span>` : ''}
+              <div class="text-[11px] text-slate-600 mt-0.5 flex items-center gap-1 flex-wrap">
+                ${tempTag}
+                <span class="font-bold text-slate-800">${v.drink}</span>
+                ${sizeTag}
+                ${decafTag}
+                ${v.memo ? `<span class="text-emerald-700 font-medium text-[10px]">(${v.memo})</span>` : ''}
               </div>
             </div>
             <div class="flex items-center gap-2">
