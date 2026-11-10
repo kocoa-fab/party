@@ -579,16 +579,35 @@
     let supabaseClient = null;
     let isApplyingRemoteChange = false;
 
-    window.addEventListener('DOMContentLoaded', async () => {
-      loadLocalState();
+    
+    // 데이터 구조 안전 보장 함수 (Firebase가 빈 배열/객체를 생략하더라도 오류 방지)
+    function sanitizeState(data) {
+      if (!data || typeof data !== 'object') data = {};
+      if (!Array.isArray(data.birthdays)) data.birthdays = [];
+      if (!data.attendance || typeof data.attendance !== 'object') data.attendance = {};
+      if (!data.roles || typeof data.roles !== 'object') {
+        data.roles = { coffeeSlots: 4, cakeSlots: 2, coffeeAssignees: [], cakeAssignees: [] };
+      } else {
+        if (typeof data.roles.coffeeSlots !== 'number') data.roles.coffeeSlots = 4;
+        if (typeof data.roles.cakeSlots !== 'number') data.roles.cakeSlots = 2;
+        if (!Array.isArray(data.roles.coffeeAssignees)) data.roles.coffeeAssignees = [];
+        if (!Array.isArray(data.roles.cakeAssignees)) data.roles.cakeAssignees = [];
+      }
+      if (!data.votes || typeof data.votes !== 'object') data.votes = {};
+
       TEAM_MEMBERS.forEach(m => {
-        if (appState.attendance[m] === undefined) {
-          appState.attendance[m] = true;
+        if (data.attendance[m] === undefined) {
+          data.attendance[m] = true;
         }
       });
+      return data;
+    }
 
+    window.addEventListener('DOMContentLoaded', async () => {
+      loadLocalState();
+      appState = sanitizeState(appState);
       renderAll();
-      lucide.createIcons();
+      try { lucide.createIcons(); } catch(e){}
 
       // 실시간 클라우드 DB 연동 초기화
       initCloudSync();
@@ -601,14 +620,13 @@
         try {
           const parsed = JSON.parse(saved);
           if (parsed && typeof parsed === 'object') {
-            appState = Object.assign(appState, parsed);
-            if (!appState.attendance) appState.attendance = {};
-            if (!appState.roles) appState.roles = { coffeeSlots: 4, cakeSlots: 2, coffeeAssignees: [], cakeAssignees: [] };
-            if (!appState.votes) appState.votes = {};
+            appState = sanitizeState(parsed);
           }
         } catch(e) {
           console.error("로컬 데이터 로드 실패", e);
         }
+      } else {
+        appState = sanitizeState({});
       }
     }
 
@@ -681,21 +699,17 @@
           // 실시간 리스너 등록 (다른 팀원이 주문하거나 수정하면 0.1초 내 즉각 반영)
           firebaseDbRef.on('value', (snapshot) => {
             const remoteData = snapshot.val();
+            isApplyingRemoteChange = true;
             if (remoteData) {
-              isApplyingRemoteChange = true;
-              appState = remoteData;
-              if (!appState.attendance) appState.attendance = {};
-              if (!appState.roles) appState.roles = { coffeeSlots: 4, cakeSlots: 2, coffeeAssignees: [], cakeAssignees: [] };
-              if (!appState.votes) appState.votes = {};
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
-              renderAll();
-              isApplyingRemoteChange = false;
-              updateSyncBadge('synced');
+              appState = sanitizeState(remoteData);
             } else {
-              // DB가 비어있으면 현재 로컬 데이터를 최초 업로드
+              appState = sanitizeState(appState);
               firebaseDbRef.set(appState);
-              updateSyncBadge('synced');
             }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+            renderAll();
+            isApplyingRemoteChange = false;
+            updateSyncBadge('synced');
           }, (err) => {
             console.error("Firebase 실시간 연결 오류:", err);
             updateSyncBadge('error');
@@ -944,6 +958,8 @@
 
     // ================= 생일파티 탭 렌더링 =================
     function renderBirthdaySection() {
+      if (!appState) appState = sanitizeState({});
+      if (!Array.isArray(appState.birthdays)) appState.birthdays = [];
       const heroText = document.getElementById('birthday-hero-text');
       if (appState.birthdays && appState.birthdays.length > 0) {
         heroText.innerHTML = `오늘의 주인공은 <span class="underline decoration-yellow-300 font-black">${appState.birthdays.join(', ')}</span> 님입니다! 🎂🥳`;
@@ -954,7 +970,7 @@
       const grid = document.getElementById('birthday-select-grid');
       grid.innerHTML = '';
       TEAM_MEMBERS.forEach(name => {
-        const isBday = appState.birthdays.includes(name);
+        const isBday = Array.isArray(appState.birthdays) && appState.birthdays.includes(name);
         const btn = document.createElement('button');
         btn.className = `py-2 px-1 text-[11px] rounded-xl font-bold transition flex items-center justify-center gap-1 ${
           isBday 
@@ -991,7 +1007,7 @@
       let presentCount = 0;
 
       TEAM_MEMBERS.forEach(name => {
-        const isPresent = appState.attendance[name] !== false;
+        const isPresent = (appState.attendance && appState.attendance[name] !== false);
         if (isPresent) presentCount++;
 
         const btn = document.createElement('button');
